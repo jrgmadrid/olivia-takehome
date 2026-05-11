@@ -228,12 +228,7 @@ export default function Home() {
         <main className="grid min-h-0 flex-1 grid-cols-1 gap-6 overflow-hidden px-6 py-6 lg:grid-cols-[1fr_420px]">
           <section className="flex min-h-0 flex-col overflow-hidden">
             <div className="flex min-h-0 flex-1">
-              <Canvas
-                image={canvasImage}
-                label={canvasLabel}
-                busy={busy}
-                busyLabel={STATUS_LABELS[status]}
-              />
+              <Canvas image={canvasImage} label={canvasLabel} busy={busy} />
             </div>
             <VersionRail
               versions={session.versions}

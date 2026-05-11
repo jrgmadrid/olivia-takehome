@@ -157,9 +157,11 @@ export async function appendUserTurnIfNew(
   content: string,
 ): Promise<Session> {
   const session = await requireSession(id);
-  const last = session.transcript[session.transcript.length - 1];
-  if (last && last.kind === "user" && last.content === content) {
-    return session;
+  for (let i = session.transcript.length - 1; i >= 0; i--) {
+    const turn = session.transcript[i];
+    if (turn.kind !== "user") continue;
+    if (turn.content === content) return session;
+    break;
   }
   return appendTurn(id, {
     kind: "user",
