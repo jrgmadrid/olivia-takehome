@@ -1,21 +1,87 @@
 @import "tailwindcss";
 
-@theme inline {
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+@theme {
+  --font-sans: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-display), ui-serif, Georgia, serif;
+  --font-mono: var(--font-mono), ui-monospace, monospace;
 
-  --animate-shimmer: shimmer 2.4s ease-in-out infinite;
-  @keyframes shimmer {
-    0%, 100% { transform: translateX(-100%); opacity: 0; }
-    50% { transform: translateX(100%); opacity: 1; }
-  }
+  /* Cream / paper surfaces — warm, aged */
+  --color-cream: #F1E9D2;
+  --color-cream-deep: #E6DCBE;
+  --color-paper: #F8F1DC;
+  --color-paper-high: #FCF7E8;
+
+  /* Warm ink */
+  --color-ink: #2A2118;
+  --color-ink-soft: #5D4F40;
+  --color-ink-mute: #8E7E69;
+
+  /* Borders / edges */
+  --color-edge: #D9CCAE;
+  --color-edge-strong: #BFAF8C;
+
+  /* Burnt sienna — primary accent */
+  --color-sienna: #C8633C;
+  --color-sienna-dark: #A84B25;
+  --color-sienna-soft: #E8B89A;
+
+  /* Secondary — deep forest green for contrast moments */
+  --color-forest: #5C6A4D;
 }
 
-html, body {
-  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+@keyframes shimmer-slide {
+  0%   { transform: translateX(-120%); }
+  100% { transform: translateX(120%); }
+}
+
+@keyframes shimmer-text {
+  0%   { background-position: -150% 0; }
+  100% { background-position: 250% 0; }
+}
+
+html, body, #__next {
+  height: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--color-cream);
+  color: var(--color-ink);
+}
+
+.font-display {
+  font-family: var(--font-display);
+  font-feature-settings: "ss01", "ss02";
+}
+
+.shimmer-text {
+  background: linear-gradient(
+    110deg,
+    rgba(93, 79, 64, 0.45) 0%,
+    rgba(200, 99, 60, 1) 45%,
+    rgba(93, 79, 64, 0.45) 90%
+  );
+  background-size: 250% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  animation: shimmer-text 2.6s ease-in-out infinite;
+}
+
+.shimmer-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    100deg,
+    transparent 30%,
+    rgba(252, 247, 232, 0.55) 50%,
+    transparent 70%
+  );
+  animation: shimmer-slide 2.4s ease-in-out infinite;
 }
 
 ::selection {
-  background: #fcd34d;
-  color: #18181b;
+  background: var(--color-sienna-soft);
+  color: var(--color-ink);
 }

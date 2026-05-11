@@ -23,8 +23,8 @@ export function VersionRail({ versions, currentVersionId, onSelect }: Props) {
             onClick={() => onSelect?.(version.id)}
             className={`group relative flex h-16 w-16 shrink-0 overflow-hidden rounded-md border transition ${
               isCurrent
-                ? "border-amber-400/80 ring-1 ring-amber-400/40"
-                : "border-zinc-800 hover:border-zinc-600"
+                ? "border-sienna ring-2 ring-sienna/30"
+                : "border-edge hover:border-sienna/60"
             }`}
             title={version.prompt}
           >
@@ -34,7 +34,11 @@ export function VersionRail({ versions, currentVersionId, onSelect }: Props) {
               alt={`Version ${idx + 1}`}
               className="h-full w-full object-cover"
             />
-            <span className="absolute bottom-0 left-0 right-0 bg-black/60 px-1 py-0.5 text-center font-mono text-[10px] text-zinc-300">
+            <span
+              className={`absolute bottom-0 left-0 right-0 px-1 py-0.5 text-center font-mono text-[10px] ${
+                isCurrent ? "bg-sienna text-paper-high" : "bg-ink/70 text-cream"
+              }`}
+            >
               v{idx + 1}
             </span>
           </button>

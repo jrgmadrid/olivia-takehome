@@ -1,13 +1,12 @@
-import { NextResponse } from "next/server";
 import { getSession } from "@/lib/storage/session";
 
 export async function GET(request: Request): Promise<Response> {
   const sessionId = new URL(request.url).searchParams.get("sessionId");
   if (!sessionId) {
-    return NextResponse.json({ error: "sessionId required" }, { status: 400 });
+    return Response.json({ error: "sessionId required" }, { status: 400 });
   }
-  const session = getSession(sessionId);
-  if (!session) return NextResponse.json({ error: "not found" }, { status: 404 });
+  const session = await getSession(sessionId);
+  if (!session) return Response.json({ error: "not found" }, { status: 404 });
 
   const lines: string[] = [];
   lines.push(`# Session ${session.id}`);
@@ -20,7 +19,7 @@ export async function GET(request: Request): Promise<Response> {
     if (turn.kind === "user") {
       lines.push(`**user** — ${turn.createdAt}`, "", turn.content, "");
     } else if (turn.kind === "assistant") {
-      lines.push(`**assistant** — ${turn.createdAt}`, "", turn.content, "");
+      lines.push(`**peggy** — ${turn.createdAt}`, "", turn.content, "");
     } else {
       lines.push(`**tool:${turn.tool}** — ${turn.label} — ${turn.createdAt}`);
       if (turn.detail) {

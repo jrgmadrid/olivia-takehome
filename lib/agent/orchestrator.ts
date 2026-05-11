@@ -1,29 +1,71 @@
 import { randomUUID } from "node:crypto";
-import { analyzeProduct, planGeneration, planRefinement } from "@/lib/agent/claude";
-import { generateScene, refineScene, type RefineHistoryItem } from "@/lib/agent/gemini";
+import {
+  analyzeProduct,
+  planGeneration,
+  planRefinement,
+  proposeTweaks,
+} from "@/lib/agent/claude";
+import {
+  generateScene,
+  refineScene,
+  type GeneratedImage,
+  type RefineHistoryItem,
+} from "@/lib/agent/gemini";
 import { getBlob, putBlob } from "@/lib/storage/blob";
 import {
   appendTurn,
   appendVersion,
   requireSession,
   setAnalysis,
+  setSuggestions,
+  setTitle,
 } from "@/lib/storage/session";
 import type { ImageVersion, Session } from "@/lib/types";
 
-export async function runAnalysis(sessionId: string): Promise<Session> {
-  const session = requireSession(sessionId);
-  const blob = getBlob(session.product.id);
+async function refreshSuggestions(
+  sessionId: string,
+  rendered: GeneratedImage,
+  enhancedPrompt: string,
+): Promise<void> {
+  const session = await requireSession(sessionId);
+  if (!session.analysis) return;
+  try {
+    const suggestions = await proposeTweaks({
+      renderedImage: rendered.data,
+      mimeType: rendered.mimeType,
+      analysis: session.analysis,
+      currentPrompt: enhancedPrompt,
+    });
+    await setSuggestions(sessionId, suggestions);
+  } catch {
+    // suggestions are non-critical — leave the previous set in place
+  }
+}
+
+export async function runAnalysis(
+  sessionId: string,
+  brief?: string,
+): Promise<Session> {
+  const session = await requireSession(sessionId);
+  const blob = await getBlob(session.product.id);
   if (!blob) throw new Error("Product image blob missing");
 
-  const analysis = await analyzeProduct(blob.data, blob.mimeType);
-  setAnalysis(sessionId, analysis);
+  const analysis = await analyzeProduct(blob.data, blob.mimeType, brief);
+  await setAnalysis(sessionId, analysis);
+  await setSuggestions(sessionId, analysis.suggestedScenes);
+  const now = () => new Date().toISOString();
 
-  appendTurn(sessionId, {
+  await appendTurn(sessionId, {
+    kind: "assistant",
+    content: analysis.intro,
+    createdAt: now(),
+  });
+  await appendTurn(sessionId, {
     kind: "tool",
     tool: "analyze_product",
-    label: `Identified ${analysis.category}`,
+    label: `read ${analysis.category}`,
     detail: { ...analysis },
-    createdAt: new Date().toISOString(),
+    createdAt: now(),
   });
 
   return requireSession(sessionId);
@@ -33,25 +75,27 @@ export async function runGeneration(
   sessionId: string,
   userPrompt: string,
 ): Promise<Session> {
-  const session = requireSession(sessionId);
+  const session = await requireSession(sessionId);
   if (!session.analysis) throw new Error("Session has no analysis yet");
+  const now = () => new Date().toISOString();
 
-  appendTurn(sessionId, {
-    kind: "user",
-    content: userPrompt,
-    createdAt: new Date().toISOString(),
-  });
+  const isFirstGeneration = session.versions.length === 0;
+  await appendTurn(sessionId, { kind: "user", content: userPrompt, createdAt: now() });
 
   const plan = await planGeneration(userPrompt, session.analysis);
-  appendTurn(sessionId, {
+  if (isFirstGeneration && plan.title.trim()) {
+    await setTitle(sessionId, plan.title.trim());
+  }
+  await appendTurn(sessionId, { kind: "assistant", content: plan.notes, createdAt: now() });
+  await appendTurn(sessionId, {
     kind: "tool",
     tool: "enhance_prompt",
-    label: `Strategy: ${plan.strategy.replace(/_/g, " ")}`,
-    detail: { enhancedPrompt: plan.enhancedPrompt, notes: plan.notes },
-    createdAt: new Date().toISOString(),
+    label: `plan · ${plan.strategy.replace(/_/g, " ")}`,
+    detail: { enhancedPrompt: plan.enhancedPrompt },
+    createdAt: now(),
   });
 
-  const productBlob = getBlob(session.product.id);
+  const productBlob = await getBlob(session.product.id);
   if (!productBlob) throw new Error("Product image blob missing");
 
   const generated = await generateScene({
@@ -59,25 +103,27 @@ export async function runGeneration(
     prompt: plan.enhancedPrompt,
   });
 
-  const blobId = putBlob(generated.data, generated.mimeType);
+  const blobId = await putBlob(generated.data, generated.mimeType);
   const version: ImageVersion = {
     id: randomUUID(),
     image: { id: blobId, mimeType: generated.mimeType },
     prompt: userPrompt,
     enhancedPrompt: plan.enhancedPrompt,
     parentId: null,
-    createdAt: new Date().toISOString(),
+    createdAt: now(),
   };
-  appendVersion(sessionId, version);
+  await appendVersion(sessionId, version);
 
-  appendTurn(sessionId, {
+  const after = await requireSession(sessionId);
+  await appendTurn(sessionId, {
     kind: "tool",
     tool: "generate_scene",
-    label: `Rendered v${session.versions.length + 1}`,
+    label: `render v${after.versions.length}`,
     versionId: version.id,
-    createdAt: new Date().toISOString(),
+    createdAt: now(),
   });
 
+  await refreshSuggestions(sessionId, generated, plan.enhancedPrompt);
   return requireSession(sessionId);
 }
 
@@ -85,33 +131,31 @@ export async function runRefinement(
   sessionId: string,
   userMessage: string,
 ): Promise<Session> {
-  const session = requireSession(sessionId);
+  const session = await requireSession(sessionId);
   if (!session.analysis) throw new Error("Session has no analysis yet");
   const currentVersion = session.versions.find((v) => v.id === session.currentVersionId);
   if (!currentVersion) throw new Error("No current version to refine");
+  const now = () => new Date().toISOString();
 
-  appendTurn(sessionId, {
-    kind: "user",
-    content: userMessage,
-    createdAt: new Date().toISOString(),
-  });
+  await appendTurn(sessionId, { kind: "user", content: userMessage, createdAt: now() });
 
   const plan = await planRefinement({
     analysis: session.analysis,
     currentPrompt: currentVersion.enhancedPrompt,
     userMessage,
   });
-  appendTurn(sessionId, {
+  await appendTurn(sessionId, { kind: "assistant", content: plan.notes, createdAt: now() });
+  await appendTurn(sessionId, {
     kind: "tool",
     tool: "refine_scene",
-    label: `Intent: ${plan.intent}`,
-    detail: { enhancedPrompt: plan.enhancedPrompt, notes: plan.notes },
-    createdAt: new Date().toISOString(),
+    label: `edit · ${plan.intent}`,
+    detail: { enhancedPrompt: plan.enhancedPrompt },
+    createdAt: now(),
   });
 
-  const productBlob = getBlob(session.product.id);
+  const productBlob = await getBlob(session.product.id);
   if (!productBlob) throw new Error("Product image blob missing");
-  const currentBlob = getBlob(currentVersion.image.id);
+  const currentBlob = await getBlob(currentVersion.image.id);
   if (!currentBlob) throw new Error("Current version blob missing");
 
   const history: RefineHistoryItem[] = [
@@ -128,24 +172,26 @@ export async function runRefinement(
 
   const generated = await refineScene({ history, prompt: plan.enhancedPrompt });
 
-  const blobId = putBlob(generated.data, generated.mimeType);
+  const blobId = await putBlob(generated.data, generated.mimeType);
   const version: ImageVersion = {
     id: randomUUID(),
     image: { id: blobId, mimeType: generated.mimeType },
     prompt: userMessage,
     enhancedPrompt: plan.enhancedPrompt,
     parentId: currentVersion.id,
-    createdAt: new Date().toISOString(),
+    createdAt: now(),
   };
-  appendVersion(sessionId, version);
+  await appendVersion(sessionId, version);
 
-  appendTurn(sessionId, {
+  const after = await requireSession(sessionId);
+  await appendTurn(sessionId, {
     kind: "tool",
     tool: "generate_scene",
-    label: `Rendered v${session.versions.length + 1}`,
+    label: `render v${after.versions.length}`,
     versionId: version.id,
-    createdAt: new Date().toISOString(),
+    createdAt: now(),
   });
 
+  await refreshSuggestions(sessionId, generated, plan.enhancedPrompt);
   return requireSession(sessionId);
 }

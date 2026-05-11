@@ -1,4 +1,4 @@
-import type { Session } from "@/lib/types";
+import type { Session, SessionSummary } from "@/lib/types";
 
 async function asJson<T>(response: Response): Promise<T> {
   if (!response.ok) {
@@ -16,12 +16,15 @@ export async function uploadImage(file: File): Promise<{ sessionId: string }> {
   );
 }
 
-export async function analyzeSession(sessionId: string): Promise<Session> {
+export async function analyzeSession(
+  sessionId: string,
+  brief?: string,
+): Promise<Session> {
   const data = await asJson<{ session: Session }>(
     await fetch("/api/analyze", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ sessionId }),
+      body: JSON.stringify({ sessionId, brief }),
     }),
   );
   return data.session;
@@ -41,6 +44,20 @@ export async function generateScene(
   return data.session;
 }
 
+export async function selectVersion(
+  sessionId: string,
+  versionId: string,
+): Promise<Session> {
+  const data = await asJson<{ session: Session }>(
+    await fetch(`/api/session/${sessionId}/select`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ versionId }),
+    }),
+  );
+  return data.session;
+}
+
 export async function refineScene(
   sessionId: string,
   message: string,
@@ -51,6 +68,20 @@ export async function refineScene(
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ sessionId, message }),
     }),
+  );
+  return data.session;
+}
+
+export async function listSessions(limit = 8): Promise<SessionSummary[]> {
+  const data = await asJson<{ sessions: SessionSummary[] }>(
+    await fetch(`/api/sessions?limit=${limit}`, { cache: "no-store" }),
+  );
+  return data.sessions;
+}
+
+export async function loadSession(sessionId: string): Promise<Session> {
+  const data = await asJson<{ session: Session }>(
+    await fetch(`/api/session/${sessionId}`, { cache: "no-store" }),
   );
   return data.session;
 }

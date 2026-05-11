@@ -11,6 +11,13 @@ export type Status =
   | "refining"
   | "error";
 
+export const STATUS_LABELS: Partial<Record<Status, string>> = {
+  uploading: "uploading…",
+  analyzing: "looking at it…",
+  generating: "rendering…",
+  refining: "editing…",
+};
+
 type State = {
   session: Session | null;
   status: Status;
@@ -33,7 +40,8 @@ const initial: State = {
 export const useStore = create<State & Actions>((set) => ({
   ...initial,
   setSession: (session) => set({ session }),
-  setStatus: (status) => set({ status, error: status === "error" ? undefined : null }),
+  setStatus: (status) =>
+    set(status === "error" ? { status } : { status, error: null }),
   setError: (error) => set({ error, status: error ? "error" : "idle" }),
   reset: () => set(initial),
 }));

@@ -38,7 +38,7 @@ export function PromptBar({
               type="button"
               disabled={disabled}
               onClick={() => onPickSuggestion?.(suggestion)}
-              className="rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1.5 text-xs text-zinc-300 transition hover:border-amber-400/50 hover:text-amber-200 disabled:opacity-50"
+              className="rounded-full border border-edge bg-paper-high px-3 py-1.5 text-xs text-ink-soft transition hover:border-sienna hover:bg-sienna-soft/30 hover:text-sienna-dark disabled:opacity-50"
               title={suggestion.rationale}
             >
               {suggestion.label}
@@ -48,7 +48,7 @@ export function PromptBar({
       ) : null}
       <form
         onSubmit={handleSubmit}
-        className="flex items-end gap-2 rounded-2xl border border-zinc-800 bg-zinc-950 px-3 py-2 focus-within:border-zinc-600"
+        className="flex items-end gap-2 rounded-2xl border border-edge bg-paper-high px-3 py-2 transition focus-within:border-sienna"
       >
         <textarea
           value={value}
@@ -62,12 +62,12 @@ export function PromptBar({
           rows={1}
           placeholder={placeholder}
           disabled={disabled}
-          className="flex-1 resize-none bg-transparent text-sm text-zinc-100 outline-none placeholder:text-zinc-600 disabled:opacity-50"
+          className="flex-1 resize-none bg-transparent text-sm text-ink outline-none placeholder:text-ink-mute disabled:opacity-50"
         />
         <button
           type="submit"
           disabled={disabled || !value.trim()}
-          className="rounded-full bg-amber-300 px-3 py-1 text-xs font-medium uppercase tracking-wider text-zinc-950 transition hover:bg-amber-200 disabled:opacity-30"
+          className="rounded-full bg-sienna px-3.5 py-1.5 text-xs font-medium uppercase tracking-wider text-paper-high transition hover:bg-sienna-dark disabled:opacity-30"
         >
           Send
         </button>

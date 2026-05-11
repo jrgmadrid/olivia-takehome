@@ -23,8 +23,8 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const data = Buffer.from(await file.arrayBuffer());
-  const blobId = putBlob(data, file.type);
-  const session = createSession({ id: blobId, mimeType: file.type });
+  const blobId = await putBlob(data, file.type);
+  const session = await createSession({ id: blobId, mimeType: file.type });
 
   return NextResponse.json({
     sessionId: session.id,

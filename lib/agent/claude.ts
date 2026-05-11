@@ -3,11 +3,13 @@ import type {
   GeneratePlan,
   ProductAnalysis,
   RefinePlan,
+  SuggestedScene,
 } from "@/lib/types";
 import {
   PRODUCT_ANALYZER_SYSTEM,
   PROMPT_ENHANCER_SYSTEM,
   REFINER_SYSTEM,
+  TWEAK_PROPOSER_SYSTEM,
 } from "@/lib/agent/prompts";
 
 const MODEL = "claude-sonnet-4-6";
@@ -59,7 +61,13 @@ function parseJson<T>(raw: string, context: string): T {
 export async function analyzeProduct(
   imageData: Buffer,
   mimeType: string,
+  brief?: string,
 ): Promise<ProductAnalysis> {
+  const briefText = brief?.trim();
+  const userText = briefText
+    ? `The user dropped this product image along with this brief:\n\n"""\n${briefText}\n"""\n\nReturn the JSON brief. Your intro must react to the product AND the brief together — never praise features the brief is asking you to change.`
+    : "No brief from the user yet — just the product image. Return the JSON brief.";
+
   const message = await client().messages.create({
     model: MODEL,
     max_tokens: 1500,
@@ -76,7 +84,7 @@ export async function analyzeProduct(
               data: imageData.toString("base64"),
             },
           },
-          { type: "text", text: "Analyze this product and return the JSON brief." },
+          { type: "text", text: userText },
         ],
       },
     ],
@@ -107,6 +115,40 @@ export async function planGeneration(
   });
 
   return parseJson<GeneratePlan>(extractText(message), "planGeneration");
+}
+
+export async function proposeTweaks(args: {
+  renderedImage: Buffer;
+  mimeType: string;
+  analysis: ProductAnalysis;
+  currentPrompt: string;
+}): Promise<SuggestedScene[]> {
+  const message = await client().messages.create({
+    model: MODEL,
+    max_tokens: 800,
+    system: TWEAK_PROPOSER_SYSTEM,
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "image",
+            source: {
+              type: "base64",
+              media_type: assertSupportedMime(args.mimeType),
+              data: args.renderedImage.toString("base64"),
+            },
+          },
+          {
+            type: "text",
+            text: `Product analysis:\n${JSON.stringify(args.analysis, null, 2)}\n\nCurrent scene prompt:\n${args.currentPrompt}`,
+          },
+        ],
+      },
+    ],
+  });
+
+  return parseJson<SuggestedScene[]>(extractText(message), "proposeTweaks");
 }
 
 export async function planRefinement(args: {

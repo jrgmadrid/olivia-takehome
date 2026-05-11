@@ -3,13 +3,15 @@ import { runAnalysis } from "@/lib/agent/orchestrator";
 import { SessionNotFoundError } from "@/lib/storage/session";
 
 export async function POST(request: Request): Promise<Response> {
-  const body = (await request.json().catch(() => null)) as { sessionId?: string } | null;
+  const body = (await request.json().catch(() => null)) as
+    | { sessionId?: string; brief?: string }
+    | null;
   if (!body?.sessionId) {
     return NextResponse.json({ error: "sessionId required" }, { status: 400 });
   }
 
   try {
-    const session = await runAnalysis(body.sessionId);
+    const session = await runAnalysis(body.sessionId, body.brief);
     return NextResponse.json({ session });
   } catch (error) {
     return errorResponse(error);
