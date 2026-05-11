@@ -14,6 +14,7 @@ import {
 import { getBlob, putBlob } from "@/lib/storage/blob";
 import {
   appendTurn,
+  appendUserTurnIfNew,
   appendVersion,
   requireSession,
   setAnalysis,
@@ -47,10 +48,16 @@ export async function runAnalysis(
   brief?: string,
 ): Promise<Session> {
   const session = await requireSession(sessionId);
+  if (!session.product) return session;
   const blob = await getBlob(session.product.id);
   if (!blob) throw new Error("Product image blob missing");
 
-  const analysis = await analyzeProduct(blob.data, blob.mimeType, brief);
+  const trimmedBrief = brief?.trim();
+  if (trimmedBrief) {
+    await appendUserTurnIfNew(sessionId, trimmedBrief);
+  }
+
+  const analysis = await analyzeProduct(blob.data, blob.mimeType, trimmedBrief);
   await setAnalysis(sessionId, analysis);
   await setSuggestions(sessionId, analysis.suggestedScenes);
   const now = () => new Date().toISOString();
@@ -76,11 +83,10 @@ export async function runGeneration(
   userPrompt: string,
 ): Promise<Session> {
   const session = await requireSession(sessionId);
-  if (!session.analysis) throw new Error("Session has no analysis yet");
   const now = () => new Date().toISOString();
 
   const isFirstGeneration = session.versions.length === 0;
-  await appendTurn(sessionId, { kind: "user", content: userPrompt, createdAt: now() });
+  await appendUserTurnIfNew(sessionId, userPrompt);
 
   const plan = await planGeneration(userPrompt, session.analysis);
   if (isFirstGeneration && plan.title.trim()) {
@@ -95,11 +101,15 @@ export async function runGeneration(
     createdAt: now(),
   });
 
-  const productBlob = await getBlob(session.product.id);
-  if (!productBlob) throw new Error("Product image blob missing");
+  let productImage: { data: Buffer; mimeType: string } | undefined;
+  if (session.product) {
+    const productBlob = await getBlob(session.product.id);
+    if (!productBlob) throw new Error("Product image blob missing");
+    productImage = { data: productBlob.data, mimeType: productBlob.mimeType };
+  }
 
   const generated = await generateScene({
-    productImage: { data: productBlob.data, mimeType: productBlob.mimeType },
+    productImage,
     prompt: plan.enhancedPrompt,
   });
 
@@ -137,7 +147,7 @@ export async function runRefinement(
   if (!currentVersion) throw new Error("No current version to refine");
   const now = () => new Date().toISOString();
 
-  await appendTurn(sessionId, { kind: "user", content: userMessage, createdAt: now() });
+  await appendUserTurnIfNew(sessionId, userMessage);
 
   const plan = await planRefinement({
     analysis: session.analysis,
@@ -153,22 +163,25 @@ export async function runRefinement(
     createdAt: now(),
   });
 
-  const productBlob = await getBlob(session.product.id);
-  if (!productBlob) throw new Error("Product image blob missing");
   const currentBlob = await getBlob(currentVersion.image.id);
   if (!currentBlob) throw new Error("Current version blob missing");
 
-  const history: RefineHistoryItem[] = [
-    {
+  const history: RefineHistoryItem[] = [];
+  if (session.product) {
+    const productBlob = await getBlob(session.product.id);
+    if (!productBlob) throw new Error("Product image blob missing");
+    history.push({
       role: "user",
       image: { data: productBlob.data, mimeType: productBlob.mimeType },
       text: currentVersion.enhancedPrompt,
-    },
-    {
-      role: "model",
-      image: { data: currentBlob.data, mimeType: currentBlob.mimeType },
-    },
-  ];
+    });
+  } else {
+    history.push({ role: "user", text: currentVersion.enhancedPrompt });
+  }
+  history.push({
+    role: "model",
+    image: { data: currentBlob.data, mimeType: currentBlob.mimeType },
+  });
 
   const generated = await refineScene({ history, prompt: plan.enhancedPrompt });
 

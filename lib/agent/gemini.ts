@@ -37,33 +37,31 @@ function extractImage(parts: Array<{ inlineData?: { data?: string; mimeType?: st
 }
 
 export async function generateScene(args: {
-  productImage: { data: Buffer; mimeType: string };
+  productImage?: { data: Buffer; mimeType: string };
   prompt: string;
 }): Promise<GeneratedImage> {
+  const parts: Array<{ inlineData?: { mimeType: string; data: string }; text?: string }> = [];
+  if (args.productImage) {
+    parts.push({
+      inlineData: {
+        mimeType: args.productImage.mimeType,
+        data: args.productImage.data.toString("base64"),
+      },
+    });
+  }
+  parts.push({ text: args.prompt });
+
   const response = await client().models.generateContent({
     model: MODEL,
-    contents: [
-      {
-        role: "user",
-        parts: [
-          {
-            inlineData: {
-              mimeType: args.productImage.mimeType,
-              data: args.productImage.data.toString("base64"),
-            },
-          },
-          { text: args.prompt },
-        ],
-      },
-    ],
+    contents: [{ role: "user", parts }],
     config: {
       responseModalities: [Modality.IMAGE, Modality.TEXT],
     },
   });
 
-  const parts = response.candidates?.[0]?.content?.parts;
-  if (!parts) throw new Error("Gemini response missing parts");
-  return extractImage(parts);
+  const responseParts = response.candidates?.[0]?.content?.parts;
+  if (!responseParts) throw new Error("Gemini response missing parts");
+  return extractImage(responseParts);
 }
 
 export async function refineScene(args: {

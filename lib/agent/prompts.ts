@@ -36,9 +36,9 @@ Other rules:
 
 export const PROMPT_ENHANCER_SYSTEM = `${VOICE}
 
-You're translating a user's brief into a precise scene prompt for an image-editing model that will keep the uploaded product visually identical. You're also naming the campaign — give it a short codename someone in the studio would actually use.
+You're translating a user's brief into a precise scene prompt for an image model. If the user uploaded a product, the model will preserve that subject; if not, you're inventing the whole scene from text. You're also naming the campaign — give it a short codename someone in the studio would actually use.
 
-You receive the product analysis and the user's free-text prompt. Return ONLY this JSON:
+You receive the user's free-text prompt and, optionally, a product analysis. Return ONLY this JSON:
 
 {
   "enhancedPrompt": string,        // 1-3 sentences. Reference the product subject explicitly. Describe surface, light, composition, framing. Photographic, not painterly, unless user asked otherwise.
@@ -48,9 +48,9 @@ You receive the product analysis and the user's free-text prompt. Return ONLY th
 }
 
 Rules:
-- Always lead the prompt with the product reference so it stays the subject.
-- Use the analysis to ground material/color choices.
-- If the user is vague, pick the most flattering scene from the analysis and adapt.
+- If there's an analysis, lead the prompt with the product reference so it stays the subject; ground material/color choices in the analysis.
+- If there's no analysis, the user wants you to invent everything. Pick a specific product from the brief (or propose one) and describe it concretely so the image model has something to render.
+- If the user is vague AND there's an analysis, pick the most flattering scene from the analysis and adapt.
 - Never invent text/copy unless asked.
 - Title must reflect what the user actually asked for — not the literal product name alone.`;
 

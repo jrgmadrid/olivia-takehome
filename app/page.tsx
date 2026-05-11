@@ -3,12 +3,12 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   analyzeSession,
+  beginSession,
   generateScene,
   loadSession,
   refineScene,
   selectVersion,
   transcriptHref,
-  uploadImage,
 } from "@/lib/client/api";
 import { currentVersion, STATUS_LABELS, useStore } from "@/lib/client/store";
 import { Canvas } from "@/components/canvas/Canvas";
@@ -48,13 +48,36 @@ export default function Home() {
   const busy = status !== "idle" && status !== "error";
 
   const handleBegin = useCallback(
-    async (file: File, initialPrompt: string) => {
+    async (file: File | null, initialPrompt: string) => {
       try {
         setStatus("uploading");
-        const { sessionId } = await uploadImage(file);
-        setStatus("analyzing");
-        const analyzed = await analyzeSession(sessionId, initialPrompt || undefined);
-        setSession(analyzed);
+        const { sessionId, product } = await beginSession(file);
+        if (initialPrompt) {
+          setSession({
+            id: sessionId,
+            product,
+            analysis: null,
+            versions: [],
+            currentVersionId: null,
+            transcript: [
+              {
+                kind: "user",
+                content: initialPrompt,
+                createdAt: new Date().toISOString(),
+              },
+            ],
+            suggestions: [],
+            title: null,
+            thumbnail: product,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          });
+        }
+        if (file) {
+          setStatus("analyzing");
+          const analyzed = await analyzeSession(sessionId, initialPrompt || undefined);
+          setSession(analyzed);
+        }
         if (initialPrompt) {
           setStatus("generating");
           const generated = await generateScene(sessionId, initialPrompt);
@@ -73,6 +96,17 @@ export default function Home() {
       if (!session) return;
       try {
         const isFirst = session.versions.length === 0;
+        setSession({
+          ...session,
+          transcript: [
+            ...session.transcript,
+            {
+              kind: "user",
+              content: prompt,
+              createdAt: new Date().toISOString(),
+            },
+          ],
+        });
         setStatus(isFirst ? "generating" : "refining");
         const fn = isFirst ? generateScene : refineScene;
         const updated = await fn(session.id, prompt);
@@ -129,7 +163,12 @@ export default function Home() {
   const versionIndex = session && version
     ? session.versions.findIndex((v) => v.id === version.id)
     : -1;
-  const canvasLabel = versionIndex >= 0 ? `Render — v${versionIndex + 1}` : "Product";
+  const canvasLabel =
+    versionIndex >= 0
+      ? `Render — v${versionIndex + 1}`
+      : session?.product
+        ? "Product"
+        : "Canvas";
 
   return (
     <div className="flex h-svh flex-col overflow-hidden bg-cream text-ink">

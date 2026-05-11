@@ -20,8 +20,8 @@ export class SessionNotFoundError extends Error {
 
 type SessionRow = {
   id: string;
-  product_image_id: string;
-  product_mime_type: string;
+  product_image_id: string | null;
+  product_mime_type: string | null;
   analysis: string | null;
   suggestions: string;
   current_version_id: string | null;
@@ -53,9 +53,14 @@ function hydrate(sessionRow: SessionRow, versionRows: VersionRow[]): Session {
     createdAt: new Date(r.created_at).toISOString(),
   }));
 
+  const product =
+    sessionRow.product_image_id && sessionRow.product_mime_type
+      ? { id: sessionRow.product_image_id, mimeType: sessionRow.product_mime_type }
+      : null;
+
   return {
     id: sessionRow.id,
-    product: { id: sessionRow.product_image_id, mimeType: sessionRow.product_mime_type },
+    product,
     analysis: sessionRow.analysis ? (JSON.parse(sessionRow.analysis) as ProductAnalysis) : null,
     suggestions: JSON.parse(sessionRow.suggestions) as SuggestedScene[],
     transcript: JSON.parse(sessionRow.transcript) as AgentTurn[],
@@ -70,7 +75,7 @@ function hydrate(sessionRow: SessionRow, versionRows: VersionRow[]): Session {
   };
 }
 
-export async function createSession(product: ImageRef): Promise<Session> {
+export async function createSession(product: ImageRef | null): Promise<Session> {
   await ensureSchema();
   const id = randomUUID();
   const now = Date.now();
@@ -79,7 +84,7 @@ export async function createSession(product: ImageRef): Promise<Session> {
       id, product_image_id, product_mime_type, analysis, suggestions,
       current_version_id, transcript, title, thumbnail_image_id, created_at, updated_at
     ) VALUES (?, ?, ?, NULL, '[]', NULL, '[]', NULL, ?, ?, ?)`,
-    args: [id, product.id, product.mimeType, product.id, now, now],
+    args: [id, product?.id ?? null, product?.mimeType ?? null, product?.id ?? null, now, now],
   });
   return requireSession(id);
 }
@@ -145,6 +150,22 @@ export async function appendTurn(id: string, turn: AgentTurn): Promise<Session> 
     args: [JSON.stringify(nextTranscript), Date.now(), id],
   });
   return requireSession(id);
+}
+
+export async function appendUserTurnIfNew(
+  id: string,
+  content: string,
+): Promise<Session> {
+  const session = await requireSession(id);
+  const last = session.transcript[session.transcript.length - 1];
+  if (last && last.kind === "user" && last.content === content) {
+    return session;
+  }
+  return appendTurn(id, {
+    kind: "user",
+    content,
+    createdAt: new Date().toISOString(),
+  });
 }
 
 export async function appendVersion(

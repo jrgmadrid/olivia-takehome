@@ -10,7 +10,7 @@ import {
 
 type Props = {
   busy: boolean;
-  onSubmit: (file: File, prompt: string) => void;
+  onSubmit: (file: File | null, prompt: string) => void;
 };
 
 const ACCEPT = ["image/jpeg", "image/png", "image/webp", "image/gif"];
@@ -101,8 +101,9 @@ export function EmptyBrief({ busy, onSubmit }: Props) {
   }, []);
 
   const submit = () => {
-    if (!file || busy) return;
-    onSubmit(file, prompt.trim());
+    const text = prompt.trim();
+    if ((!file && !text) || busy) return;
+    onSubmit(file, text);
   };
 
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
@@ -191,7 +192,7 @@ export function EmptyBrief({ busy, onSubmit }: Props) {
         <button
           type="button"
           onClick={submit}
-          disabled={!file || busy}
+          disabled={(!file && !prompt.trim()) || busy}
           className="rounded-full bg-sienna px-5 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-paper-high shadow-[0_6px_18px_-8px_rgba(168,75,37,0.55)] transition hover:bg-sienna-dark disabled:cursor-not-allowed disabled:opacity-30 disabled:shadow-none"
         >
           Begin

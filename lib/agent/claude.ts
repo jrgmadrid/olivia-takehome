@@ -95,8 +95,12 @@ export async function analyzeProduct(
 
 export async function planGeneration(
   userPrompt: string,
-  analysis: ProductAnalysis,
+  analysis: ProductAnalysis | null,
 ): Promise<GeneratePlan> {
+  const context = analysis
+    ? `Product analysis:\n${JSON.stringify(analysis, null, 2)}\n\nUser prompt: ${userPrompt}`
+    : `There is no product image — the user wants you to invent the scene from their brief alone. Propose the product yourself if it isn't named.\n\nUser prompt: ${userPrompt}`;
+
   const message = await client().messages.create({
     model: MODEL,
     max_tokens: 800,
@@ -104,12 +108,7 @@ export async function planGeneration(
     messages: [
       {
         role: "user",
-        content: [
-          {
-            type: "text",
-            text: `Product analysis:\n${JSON.stringify(analysis, null, 2)}\n\nUser prompt: ${userPrompt}`,
-          },
-        ],
+        content: [{ type: "text", text: context }],
       },
     ],
   });

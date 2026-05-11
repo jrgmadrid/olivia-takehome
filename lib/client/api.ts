@@ -1,4 +1,4 @@
-import type { Session, SessionSummary } from "@/lib/types";
+import type { ImageRef, Session, SessionSummary } from "@/lib/types";
 
 async function asJson<T>(response: Response): Promise<T> {
   if (!response.ok) {
@@ -8,10 +8,12 @@ async function asJson<T>(response: Response): Promise<T> {
   return (await response.json()) as T;
 }
 
-export async function uploadImage(file: File): Promise<{ sessionId: string }> {
+export async function beginSession(
+  file: File | null,
+): Promise<{ sessionId: string; product: ImageRef | null }> {
   const form = new FormData();
-  form.set("image", file);
-  return asJson<{ sessionId: string }>(
+  if (file) form.set("image", file);
+  return asJson<{ sessionId: string; product: ImageRef | null }>(
     await fetch("/api/upload", { method: "POST", body: form }),
   );
 }

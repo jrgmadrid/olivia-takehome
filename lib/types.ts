@@ -49,7 +49,7 @@ export type ToolName =
 
 export type Session = {
   id: string;
-  product: ImageRef;
+  product: ImageRef | null;
   analysis: ProductAnalysis | null;
   versions: ImageVersion[];
   currentVersionId: string | null;
