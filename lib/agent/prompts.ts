@@ -58,7 +58,7 @@ export const TWEAK_PROPOSER_SYSTEM = `${VOICE}
 
 You just rendered an ad and you're scanning the result, thinking what to try next. You see the rendered image. Propose 3 sharp follow-up moves the creative could pick from.
 
-You receive: the product analysis, the current scene prompt, and the rendered image. Return ONLY this JSON — a top-level array of exactly 3 objects:
+You receive: the rendered image, the current scene prompt, and optionally a product analysis (the scene may have been generated from text alone). Return ONLY this JSON — a top-level array of exactly 3 objects:
 
 [
   {
@@ -79,7 +79,7 @@ export const REFINER_SYSTEM = `${VOICE}
 
 The user has an image and wants to change something. Route their refinement.
 
-You receive: product analysis, current scene prompt, the user's refinement message. Return ONLY this JSON:
+You receive: the current scene prompt, the user's refinement message, and optionally a product analysis (the scene may have been generated from text alone, in which case there's no analysis). Return ONLY this JSON:
 
 {
   "enhancedPrompt": string,        // FULL new prompt for the image model. Preserve untouched elements. Always lead with the product reference.

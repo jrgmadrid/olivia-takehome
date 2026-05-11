@@ -119,9 +119,13 @@ export async function planGeneration(
 export async function proposeTweaks(args: {
   renderedImage: Buffer;
   mimeType: string;
-  analysis: ProductAnalysis;
+  analysis: ProductAnalysis | null;
   currentPrompt: string;
 }): Promise<SuggestedScene[]> {
+  const context = args.analysis
+    ? `Product analysis:\n${JSON.stringify(args.analysis, null, 2)}\n\nCurrent scene prompt:\n${args.currentPrompt}`
+    : `No product analysis — this scene was generated from text alone. Read the rendered image directly.\n\nCurrent scene prompt:\n${args.currentPrompt}`;
+
   const message = await client().messages.create({
     model: MODEL,
     max_tokens: 800,
@@ -138,10 +142,7 @@ export async function proposeTweaks(args: {
               data: args.renderedImage.toString("base64"),
             },
           },
-          {
-            type: "text",
-            text: `Product analysis:\n${JSON.stringify(args.analysis, null, 2)}\n\nCurrent scene prompt:\n${args.currentPrompt}`,
-          },
+          { type: "text", text: context },
         ],
       },
     ],
@@ -151,10 +152,14 @@ export async function proposeTweaks(args: {
 }
 
 export async function planRefinement(args: {
-  analysis: ProductAnalysis;
+  analysis: ProductAnalysis | null;
   currentPrompt: string;
   userMessage: string;
 }): Promise<RefinePlan> {
+  const analysisBlock = args.analysis
+    ? `Product analysis:\n${JSON.stringify(args.analysis, null, 2)}`
+    : `No product analysis — this scene was generated from text alone.`;
+
   const message = await client().messages.create({
     model: MODEL,
     max_tokens: 800,
@@ -165,7 +170,7 @@ export async function planRefinement(args: {
         content: [
           {
             type: "text",
-            text: `Product analysis:\n${JSON.stringify(args.analysis, null, 2)}\n\nCurrent scene prompt:\n${args.currentPrompt}\n\nUser refinement: ${args.userMessage}`,
+            text: `${analysisBlock}\n\nCurrent scene prompt:\n${args.currentPrompt}\n\nUser refinement: ${args.userMessage}`,
           },
         ],
       },

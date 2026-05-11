@@ -29,7 +29,6 @@ async function refreshSuggestions(
   enhancedPrompt: string,
 ): Promise<void> {
   const session = await requireSession(sessionId);
-  if (!session.analysis) return;
   try {
     const suggestions = await proposeTweaks({
       renderedImage: rendered.data,
@@ -142,7 +141,6 @@ export async function runRefinement(
   userMessage: string,
 ): Promise<Session> {
   const session = await requireSession(sessionId);
-  if (!session.analysis) throw new Error("Session has no analysis yet");
   const currentVersion = session.versions.find((v) => v.id === session.currentVersionId);
   if (!currentVersion) throw new Error("No current version to refine");
   const now = () => new Date().toISOString();

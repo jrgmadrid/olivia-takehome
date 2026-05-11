@@ -250,7 +250,7 @@ export default function Home() {
                   ? "What scene do you want?"
                   : "Tell me what to tweak — or pick one of mine."
               }
-              disabled={busy || !session.analysis}
+              disabled={busy}
               onSubmit={handlePrompt}
               suggestions={session.suggestions}
               onPickSuggestion={handleSuggestion}
